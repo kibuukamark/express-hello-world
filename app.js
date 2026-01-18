@@ -3,6 +3,41 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.get("/", (req, res) => res.type('html').send(html));
+// IMPORTANT: Parse JSON bodies for incoming webhook POSTs
+app.use(express.json());
+
+/**
+ * GET /webhook
+ * Meta calls this when you click "Verify and save" in the webhook settings.
+ * It sends a challenge string. If our verify token matches, we must echo the challenge back.
+ */
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  // This must match the "Verify token" you configured in Meta AND your Render env var
+  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    // Meta expects the challenge as plain text (NOT JSON)
+    return res.status(200).send(challenge);
+  }
+
+  // Token mismatch or wrong mode -> reject
+  return res.sendStatus(403);
+});
+
+/**
+ * POST /webhook
+ * WhatsApp Cloud will POST message events here (incoming messages, statuses, etc.)
+ * For now we just log the payload and return 200 OK.
+ */
+app.post("/webhook", (req, res) => {
+  console.log("Incoming WhatsApp webhook event:", JSON.stringify(req.body));
+  return res.sendStatus(200);
+});
+
 
 const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
 
