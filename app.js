@@ -33,10 +33,34 @@ app.get("/webhook", (req, res) => {
  * WhatsApp Cloud will POST message events here (incoming messages, statuses, etc.)
  * For now we just log the payload and return 200 OK.
  */
-app.post("/webhook", (req, res) => {
-  console.log("Incoming WhatsApp webhook event:", JSON.stringify(req.body));
-  return res.sendStatus(200);
+app.post("/webhook", async (req, res) => {
+  // 1) Reply to Meta immediately (so Meta is happy)
+  res.sendStatus(200);
+
+  // 2) Log what Meta sent (you’ll see this in Render logs)
+  console.log("Incoming WhatsApp webhook:", JSON.stringify(req.body));
+
+  // 3) Forward the same payload to n8n
+  try {
+    const n8nUrl = process.env.N8N_WEBHOOK_URL;
+
+    if (!n8nUrl) {
+      console.error("N8N_WEBHOOK_URL env var is missing");
+      return;
+    }
+
+    const r = await fetch(n8nUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body),
+    });
+
+    console.log("Forwarded to n8n:", r.status);
+  } catch (err) {
+    console.error("Error forwarding to n8n:", err.message);
+  }
 });
+
 
 
 const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
